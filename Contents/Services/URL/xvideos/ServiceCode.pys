@@ -66,3 +66,19 @@ def PlayVideo(url, fmt, **kwargs):
         Log.Debug(u"PlayVideo = '{}'".format(videoHi.group(1)))
         return IndirectResponse(VideoClipObject, key=videoHi.group(1))
     raise Ex.MediaNotAvailable
+
+####################################################################################################
+def TestURLs():
+    test_urls = list()
+    page = HTML.ElementFromURL('http://www.xvideos.com/video22720819/tattooed_seductress_anna_bell_peaks')
+    for link in page.xpath("//a/span[@class='vid']/.."):
+        if len(test_urls) < 3:
+            url = link.get('href')
+            url = BASE_URL + url
+
+        if url not in test_urls:
+            test_urls.append(url)
+        else:
+            break
+
+    return test_urls
