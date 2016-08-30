@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+"""xvideos.com ServiceCode"""
+
+BASE_URL = 'http://xvideos.com'
+RE_XML_URL = Regex(r"/xml/video(.+?)',")
+RE_JSON = Regex(r'html5player.setVideoUrlHigh\(\'(.+)?\'\);')
+
+####################################################################################################
+def MetadataObjectForURL(url):
+    try:
+        html = HTML.ElementFromURL(url)
+    except:
+        raise Ex.MediaNotAvailable
+
+    Log.Debug(u"len(og:description) = '{}'".format(len(html.xpath("//head//meta[@property='og:description']"))))
+
+    title = html.xpath("//head//meta[@property='og:title']")
+    if not title:
+        raise Ex.MediaExpired
+
+    summary = html.xpath("//head//meta[@name='description']")
+    summary = summary[0].get('content').strip() if summary else None
+
+    fallback = 'http://i.imgur.com/vvrUjX2.jpg'
+    thumb = html.xpath("//head//meta[@property='og:image']")
+    thumb = thumb[0].get('content') if thumb else fallback
+
+    timestamp = int(Datetime.TimestampFromDatetime(Datetime.Now()))
+    art = '/:/plugins/com.plexapp.plugins.xvideos/resources/art-default.jpg?t=%s' %timestamp
+
+    return VideoClipObject(
+        title=title[0].get('content').strip(),
+        summary=summary,
+        thumb=Resource.ContentsOfURLWithFallback([thumb, fallback]),
+        source_title='XVideos',
+        art=art
+        )
+
+####################################################################################################
+def MediaObjectsForURL(url):
+    Log.Debug("MediaObjectsForURL = '{}'".format(url))
+    return [
+        MediaObject(
+            video_codec=VideoCodec.H264,
+            audio_codec=AudioCodec.AAC,
+            container=Container.MP4,
+            video_resolution='480',
+            audio_channels=2,
+            parts=[
+                PartObject(key=Callback(PlayVideo, url=url, fmt='hi'))
+                ]
+            )
+        ]
+
+####################################################################################################
+@indirect
+def PlayVideo(url, fmt, **kwargs):
+    try:
+        content = HTTP.Request(url).content
+    except:
+        raise Ex.MediaNotAvailable
+
+    videoHi = RE_JSON.search(content)
+    if videoHi:
+        Log.Debug(u"PlayVideo = '{}'".format(videoHi.group(1)))
+        return IndirectResponse(VideoClipObject, key=videoHi.group(1))
+    raise Ex.MediaNotAvailable
